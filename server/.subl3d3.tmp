@@ -1,0 +1,43 @@
+<?php 
+$http = new swoole_http_server('0.0.0.0',9501);
+$http->set([
+		'worker_num' => 4,
+		'reactor_num' => 2,
+		'backlog' => 128,
+		'document_root' => __DIR__.'/../template/',
+		'enable_static_handler' => true
+	]);
+
+$http->on('workerStart',function($server,$worker_id){
+	require __DIR__ . '/../thinkphp/base.php';
+});
+$http->on('request',function($request, $responce){
+	$_SERVER = [];
+	foreach ($request->server as $key => $value) {
+		$_SERVER[$key] = $value;
+	}
+	$_GET = [];
+	if($request->get) {
+		foreach ($request->get as $key => $value) {
+			$_GET[$key] = $value;
+		}	
+	}
+	$_POST = [];
+	if($request->post) {
+		foreach ($request->post as $key => $value) {
+			$_POST[$key] = $value;
+		}
+	}
+	ob_start();
+	try{
+		\think\Container::get('app')->run()->send();
+	} catch(\Exception $e){
+		echo $e;
+	}
+	$content = ob_get_contents();
+    ob_clean();
+    $responce->header('content-type', 'text/html;charset=utf-8');
+    $responce->end($content);
+});
+$http->start();
+ ?>
